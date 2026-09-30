@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+enum Role {
+  EMPLOYEE
+  MANAGER
+}
+enum PostingStatus {
+  OPEN
+  PENDING_APPROVAL
+  COMPLETED
+}
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id String @id @default(cuid())
+  name String
+  email String @unique
+  passwordHash String
+  role Role
+  assignedShifts Shift[] @relation("AssignedShifts")
+  availability Availability[]
+  postings ShiftPosting[] @relation("PostedBy")
+  claims ShiftClaim[]
+  notifications Notification[]
+  auditEvents AuditEvent[]
+}
+
+model Shift {
+  id String @id @default(cuid())
+  assignedUserId String
+  assignedUser User @relation("AssignedShifts", fields: [assignedUserId], references: [id])
+  startAt DateTime
+  endAt DateTime
+  posting ShiftPosting?
+  @@index([assignedUserId, startAt])
+}
+
+model Availability {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  startAt DateTime
+  endAt DateTime
+  @@index([userId, startAt])
+}
+
+model ShiftPosting {
+  id String @id @default(cuid())
+  shiftId String @unique
+  shift Shift @relation(fields: [shiftId], references: [id])
+  postedById String
+  postedBy User @relation("PostedBy", fields: [postedById], references: [id])
+  status PostingStatus @default(OPEN)
+  claims ShiftClaim[]
+}
+
+model ShiftClaim {
+  id String @id @default(cuid())
+  postingId String
+  posting ShiftPosting @relation(fields: [postingId], references: [id])
+  claimantId String
+  claimant User @relation(fields: [claimantId], references: [id])
+  status ClaimStatus @default(PENDING)
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  message String
+  read Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditEvent {
+  id String @id @default(cuid())
+  actorId String
+  actor User @relation(fields: [actorId], references: [id])
+  action String
+  entityType String
+  entityId String
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+}
